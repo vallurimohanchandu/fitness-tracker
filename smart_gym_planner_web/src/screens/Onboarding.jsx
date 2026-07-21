@@ -1,12 +1,10 @@
 import React, { useState } from 'react';
 import { useApp } from '../context/AppContext';
-import { Dumbbell, Trophy, Calendar, Sparkles, Target, Ruler } from 'lucide-react';
+import { Calendar } from 'lucide-react';
 
 export default function Onboarding({ onCancel }) {
-  const { saveUser } = useApp();
+  const { saveUser, user } = useApp();
   const [step, setStep] = useState(1);
-  const [name, setName] = useState('');
-  const [password, setPassword] = useState('');
   const [experienceLevel, setExperienceLevel] = useState('beginner');
   const [workoutDaysPerWeek, setWorkoutDaysPerWeek] = useState(5);
   const [goal, setGoal] = useState('muscle_gain');
@@ -37,13 +35,11 @@ export default function Onboarding({ onCancel }) {
   };
 
   const handleNext = () => {
-    if (step === 1 && (!name.trim() || !password.trim())) return;
-    if (step === 6) {
+    if (step === 5) {
       if (!weight || parseFloat(weight) <= 0) return;
       const heightCm = (parseFloat(heightFeet) * 12 + parseFloat(heightInches)) * 2.54;
       saveUser({
-        name: name.trim(),
-        password: password.trim(),
+        name: user?.fullName || 'Athlete',
         experienceLevel,
         workoutDaysPerWeek: parseInt(workoutDaysPerWeek),
         goal,
@@ -64,7 +60,7 @@ export default function Onboarding({ onCancel }) {
     }
   };
 
-  const progressPercent = ((step - 1) / 5) * 100;
+  const progressPercent = ((step - 1) / 4) * 100;
 
   return (
     <div style={{
@@ -94,45 +90,12 @@ export default function Onboarding({ onCancel }) {
           fontSize: '13px',
           fontWeight: 600
         }}>
-          <span>Step {step} of 6</span>
+          <span>Step {step} of 5</span>
           <span style={{ color: 'var(--primary)' }}>{Math.round(progressPercent)}% Complete</span>
         </div>
 
-        {/* STEP 1: Name & Password */}
+        {/* STEP 1: Experience Level */}
         {step === 1 && (
-          <div className="animate-fade-in" style={{ display: 'grid', gap: '16px' }}>
-            <div>
-              <h2 style={{ fontSize: '26px', marginBottom: '12px', color: '#fff' }}>Welcome! Create your account</h2>
-              <p style={{ color: 'var(--text-secondary)', fontSize: '14px', marginBottom: '24px' }}>
-                Let's customize your fitness experience.
-              </p>
-            </div>
-            <div>
-              <label htmlFor="name-input">Username</label>
-              <input
-                id="name-input"
-                type="text"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                placeholder="Choose a username"
-                autoFocus
-              />
-            </div>
-            <div>
-              <label htmlFor="password-input">Password</label>
-              <input
-                id="password-input"
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder="Choose a password"
-              />
-            </div>
-          </div>
-        )}
-
-        {/* STEP 2: Experience Level */}
-        {step === 2 && (
           <div className="animate-fade-in">
             <h2 style={{ fontSize: '26px', marginBottom: '12px', color: '#fff' }}>Your experience level?</h2>
             <p style={{ color: 'var(--text-secondary)', fontSize: '14px', marginBottom: '24px' }}>
@@ -164,8 +127,8 @@ export default function Onboarding({ onCancel }) {
           </div>
         )}
 
-        {/* STEP 3: Days Per Week */}
-        {step === 3 && (
+        {/* STEP 2: Days Per Week */}
+        {step === 2 && (
           <div className="animate-fade-in">
             <h2 style={{ fontSize: '26px', marginBottom: '12px', color: '#fff' }}>How many days a week?</h2>
             <p style={{ color: 'var(--text-secondary)', fontSize: '14px', marginBottom: '24px' }}>
@@ -201,8 +164,8 @@ export default function Onboarding({ onCancel }) {
           </div>
         )}
 
-        {/* STEP 4: Goals */}
-        {step === 4 && (
+        {/* STEP 3: Goals */}
+        {step === 3 && (
           <div className="animate-fade-in">
             <h2 style={{ fontSize: '26px', marginBottom: '12px', color: '#fff' }}>What is your goal?</h2>
             <p style={{ color: 'var(--text-secondary)', fontSize: '14px', marginBottom: '24px' }}>
@@ -240,8 +203,8 @@ export default function Onboarding({ onCancel }) {
           </div>
         )}
 
-        {/* STEP 5: Equipment */}
-        {step === 5 && (
+        {/* STEP 4: Equipment */}
+        {step === 4 && (
           <div className="animate-fade-in">
             <h2 style={{ fontSize: '26px', marginBottom: '12px', color: '#fff' }}>What equipment do you have?</h2>
             <p style={{ color: 'var(--text-secondary)', fontSize: '14px', marginBottom: '24px' }}>
@@ -277,8 +240,8 @@ export default function Onboarding({ onCancel }) {
           </div>
         )}
 
-        {/* STEP 6: Body Stats */}
-        {step === 6 && (
+        {/* STEP 5: Body Stats */}
+        {step === 5 && (
           <div className="animate-fade-in">
             <h2 style={{ fontSize: '26px', marginBottom: '12px', color: '#fff' }}>Body Statistics</h2>
             <p style={{ color: 'var(--text-secondary)', fontSize: '14px', marginBottom: '24px' }}>
@@ -335,21 +298,18 @@ export default function Onboarding({ onCancel }) {
           <button 
             onClick={handleNext}
             disabled={
-              (step === 1 && (!name.trim() || !password.trim())) ||
-              (step === 6 && (!weight || parseFloat(weight) <= 0))
+              (step === 5 && (!weight || parseFloat(weight) <= 0))
             }
             style={{
               opacity: (
-                (step === 1 && (!name.trim() || !password.trim())) ||
-                (step === 6 && (!weight || parseFloat(weight) <= 0))
+                (step === 5 && (!weight || parseFloat(weight) <= 0))
               ) ? 0.5 : 1,
               cursor: (
-                (step === 1 && (!name.trim() || !password.trim())) ||
-                (step === 6 && (!weight || parseFloat(weight) <= 0))
+                (step === 5 && (!weight || parseFloat(weight) <= 0))
               ) ? 'not-allowed' : 'pointer'
             }}
           >
-            {step === 6 ? 'Get Started' : 'Next'}
+            {step === 5 ? 'Get Started' : 'Next'}
           </button>
         </div>
       </div>
