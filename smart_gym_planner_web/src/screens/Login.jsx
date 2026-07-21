@@ -101,24 +101,6 @@ export default function Login({ onLoginSuccess, onSignupClick, onForgotPasswordC
         border: '1px solid var(--border-color)',
         boxSizing: 'border-box'
       }}>
-        {/* Fallback local mode warning */}
-        {!isFirebaseAvailable && (
-          <div style={{
-            background: 'var(--warning-glow)',
-            border: '1px solid var(--warning)',
-            color: 'var(--warning)',
-            padding: '8px 12px',
-            borderRadius: '10px',
-            fontSize: '11px',
-            marginBottom: '16px',
-            textAlign: 'center',
-            width: '100%',
-            boxSizing: 'border-box',
-            lineHeight: 1.4
-          }}>
-            ⚠️ Firebase environment variables are not configured. Running in Local Mode.
-          </div>
-        )}
 
         {/* Title */}
         <h1 style={{ 
