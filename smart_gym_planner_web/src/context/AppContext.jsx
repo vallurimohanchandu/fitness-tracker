@@ -57,28 +57,43 @@ export function AppProvider({ children }) {
       if (fUser) {
         setFirebaseUser(fUser);
         setIsLoggedIn(true);
-        // Fetch Firestore user doc
         try {
           const userDocRef = doc(db, 'users', fUser.uid);
           const userDocSnap = await getDoc(userDocRef);
           if (userDocSnap.exists()) {
             const userData = userDocSnap.data();
             setUserState(userData);
-            setOnboardingDone(true);
             
-            // Load workout plan
-            const savedPlan = localStorage.getItem('sg_workout_plan');
-            if (savedPlan) {
-              setWorkoutPlan(JSON.parse(savedPlan));
+            const hasCompleted = userData.onboardingCompleted === true || 
+                                 (userData.weight && parseFloat(userData.weight) > 0);
+            
+            if (hasCompleted) {
+              if (!userData.onboardingCompleted) {
+                try {
+                  await setDoc(userDocRef, { ...userData, onboardingCompleted: true });
+                } catch (e) {
+                  console.error("Failed to auto-update onboardingCompleted field:", e);
+                }
+              }
+              setOnboardingDone(true);
+              localStorage.setItem('sg_onboarding_done', 'true');
+              
+              const savedPlan = localStorage.getItem('sg_workout_plan');
+              if (savedPlan) {
+                setWorkoutPlan(JSON.parse(savedPlan));
+              } else {
+                const plan = generateWorkoutPlan(userData);
+                setWorkoutPlan(plan);
+                localStorage.setItem('sg_workout_plan', JSON.stringify(plan));
+              }
             } else {
-              const plan = generateWorkoutPlan(userData);
-              setWorkoutPlan(plan);
-              localStorage.setItem('sg_workout_plan', JSON.stringify(plan));
+              setOnboardingDone(false);
+              localStorage.setItem('sg_onboarding_done', 'false');
             }
           } else {
-            // Authenticated but onboarding not complete
             setUserState(null);
             setOnboardingDone(false);
+            localStorage.setItem('sg_onboarding_done', 'false');
           }
         } catch (err) {
           console.error("Error fetching user profile:", err);
@@ -242,6 +257,7 @@ export function AppProvider({ children }) {
         profileImage: auth.currentUser.photoURL || '',
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
+        onboardingCompleted: true,
         ...userData
       };
 
@@ -268,13 +284,29 @@ export function AppProvider({ children }) {
       }
     } else {
       // Local Mode Fallback
-      setUserState(userData);
-      localStorage.setItem('sg_user', JSON.stringify(userData));
+      const userProfile = {
+        onboardingCompleted: true,
+        ...user,
+        ...userData
+      };
+
+      const rawAccounts = localStorage.getItem('sg_local_accounts');
+      const accounts = rawAccounts ? JSON.parse(rawAccounts) : [];
+      const updatedAccounts = accounts.map(acc => {
+        if (acc.email.toLowerCase() === userProfile.email.toLowerCase()) {
+          return { ...acc, ...userProfile };
+        }
+        return acc;
+      });
+      localStorage.setItem('sg_local_accounts', JSON.stringify(updatedAccounts));
+
+      setUserState(userProfile);
+      localStorage.setItem('sg_user', JSON.stringify(userProfile));
       localStorage.setItem('sg_onboarding_done', 'true');
       setOnboardingDone(true);
       setIsLoggedIn(true);
 
-      const plan = generateWorkoutPlan(userData);
+      const plan = generateWorkoutPlan(userProfile);
       setWorkoutPlan(plan);
       localStorage.setItem('sg_workout_plan', JSON.stringify(plan));
 
@@ -349,13 +381,23 @@ export function AppProvider({ children }) {
 
       setUserState(match);
       localStorage.setItem('sg_user', JSON.stringify(match));
-      localStorage.setItem('sg_onboarding_done', match.weight ? 'true' : 'false');
-      setOnboardingDone(match.weight ? true : false);
+      
+      const hasCompleted = match.onboardingCompleted === true || (match.weight && parseFloat(match.weight) > 0);
+      
+      if (hasCompleted && !match.onboardingCompleted) {
+        match.onboardingCompleted = true;
+        const updatedAccounts = accounts.map(acc => acc.uid === match.uid ? match : acc);
+        localStorage.setItem('sg_local_accounts', JSON.stringify(updatedAccounts));
+      }
+
+      localStorage.setItem('sg_onboarding_done', hasCompleted ? 'true' : 'false');
+      setOnboardingDone(hasCompleted);
       setIsLoggedIn(true);
 
-      const savedPlan = localStorage.getItem('sg_workout_plan');
-      if (savedPlan) {
-        setWorkoutPlan(JSON.parse(savedPlan));
+      if (hasCompleted) {
+        const plan = generateWorkoutPlan(match);
+        setWorkoutPlan(plan);
+        localStorage.setItem('sg_workout_plan', JSON.stringify(plan));
       }
       return match;
     }
