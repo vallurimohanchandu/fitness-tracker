@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { useApp } from '../context/AppContext';
 import { Dumbbell, Trophy, Calendar, Sparkles, Target, Ruler } from 'lucide-react';
 
-export default function Onboarding() {
+export default function Onboarding({ onCancel }) {
   const { saveUser } = useApp();
   const [step, setStep] = useState(1);
   const [name, setName] = useState('');
@@ -57,7 +57,11 @@ export default function Onboarding() {
   };
 
   const handleBack = () => {
-    if (step > 1) setStep(step - 1);
+    if (step > 1) {
+      setStep(step - 1);
+    } else if (onCancel) {
+      onCancel();
+    }
   };
 
   const progressPercent = ((step - 1) / 5) * 100;
@@ -332,7 +336,7 @@ export default function Onboarding() {
           paddingTop: '24px',
           borderTop: '1px solid var(--border-color)'
         }}>
-          {step > 1 ? (
+          {(step > 1 || onCancel) ? (
             <button className="secondary" onClick={handleBack}>
               Back
             </button>

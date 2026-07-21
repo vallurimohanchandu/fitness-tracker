@@ -12,13 +12,18 @@ import { Dumbbell, LayoutDashboard, Calendar, Utensils, Scale, UserCheck } from 
 export default function App() {
   const { onboardingDone, isLoggedIn, setIsLoggedIn, achievementToast } = useApp();
   const [activeTab, setActiveTab] = useState('dashboard');
-
-  if (!onboardingDone) {
-    return <Onboarding />;
-  }
+  const [showRegister, setShowRegister] = useState(false);
 
   if (!isLoggedIn) {
-    return <Login onLoginSuccess={() => setIsLoggedIn(true)} />;
+    if (showRegister || !onboardingDone) {
+      return <Onboarding onCancel={() => setShowRegister(false)} />;
+    }
+    return (
+      <Login 
+        onLoginSuccess={() => setIsLoggedIn(true)} 
+        onSignupClick={() => setShowRegister(true)} 
+      />
+    );
   }
 
   return (
