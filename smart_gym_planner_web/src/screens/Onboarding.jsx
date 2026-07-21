@@ -6,6 +6,7 @@ export default function Onboarding() {
   const { saveUser } = useApp();
   const [step, setStep] = useState(1);
   const [name, setName] = useState('');
+  const [password, setPassword] = useState('');
   const [experienceLevel, setExperienceLevel] = useState('beginner');
   const [workoutDaysPerWeek, setWorkoutDaysPerWeek] = useState(5);
   const [goal, setGoal] = useState('muscle_gain');
@@ -36,12 +37,13 @@ export default function Onboarding() {
   };
 
   const handleNext = () => {
-    if (step === 1 && !name.trim()) return;
+    if (step === 1 && (!name.trim() || !password.trim())) return;
     if (step === 6) {
       if (!weight || parseFloat(weight) <= 0) return;
       const heightCm = (parseFloat(heightFeet) * 12 + parseFloat(heightInches)) * 2.54;
       saveUser({
         name: name.trim(),
+        password: password.trim(),
         experienceLevel,
         workoutDaysPerWeek: parseInt(workoutDaysPerWeek),
         goal,
@@ -109,22 +111,34 @@ export default function Onboarding() {
           <span style={{ color: 'var(--primary)' }}>{Math.round(progressPercent)}% Complete</span>
         </div>
 
-        {/* STEP 1: Name */}
+        {/* STEP 1: Name & Password */}
         {step === 1 && (
-          <div className="animate-fade-in">
-            <h2 style={{ fontSize: '26px', marginBottom: '12px' }}>Welcome! What's your name?</h2>
-            <p style={{ color: 'var(--text-secondary)', fontSize: '14px', marginBottom: '24px' }}>
-              Let's customize your fitness experience.
-            </p>
-            <div style={{ display: 'flex', flexDirection: 'column' }}>
-              <label htmlFor="name-input">Full Name</label>
+          <div className="animate-fade-in" style={{ display: 'grid', gap: '16px' }}>
+            <div>
+              <h2 style={{ fontSize: '26px', marginBottom: '12px' }}>Welcome! Create your account</h2>
+              <p style={{ color: 'var(--text-secondary)', fontSize: '14px', marginBottom: '24px' }}>
+                Let's customize your fitness experience.
+              </p>
+            </div>
+            <div>
+              <label htmlFor="name-input">Username</label>
               <input
                 id="name-input"
                 type="text"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
-                placeholder="e.g., John Doe"
+                placeholder="Choose a username"
                 autoFocus
+              />
+            </div>
+            <div>
+              <label htmlFor="password-input">Password</label>
+              <input
+                id="password-input"
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="Choose a password"
               />
             </div>
           </div>
@@ -329,16 +343,16 @@ export default function Onboarding() {
           <button 
             onClick={handleNext}
             disabled={
-              (step === 1 && !name.trim()) ||
+              (step === 1 && (!name.trim() || !password.trim())) ||
               (step === 6 && (!weight || parseFloat(weight) <= 0))
             }
             style={{
               opacity: (
-                (step === 1 && !name.trim()) ||
+                (step === 1 && (!name.trim() || !password.trim())) ||
                 (step === 6 && (!weight || parseFloat(weight) <= 0))
               ) ? 0.5 : 1,
               cursor: (
-                (step === 1 && !name.trim()) ||
+                (step === 1 && (!name.trim() || !password.trim())) ||
                 (step === 6 && (!weight || parseFloat(weight) <= 0))
               ) ? 'not-allowed' : 'pointer'
             }}

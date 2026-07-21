@@ -16,11 +16,16 @@ export default function Login({ onLoginSuccess }) {
       return;
     }
 
-    // Since this is a local-only demo, we accept any login
-    // If onboarding is done, we verify the username matches the saved user
-    if (onboardingDone && user && username.trim().toLowerCase() !== user.name.toLowerCase()) {
-      setError(`No profile found for "${username}". Try registering instead.`);
-      return;
+    // If onboarding is done, verify both username and password
+    if (onboardingDone && user) {
+      if (username.trim().toLowerCase() !== user.name.toLowerCase()) {
+        setError(`No profile found for "${username}". Try registering instead.`);
+        return;
+      }
+      if (password !== user.password) {
+        setError('Incorrect password. Please try again.');
+        return;
+      }
     }
 
     setError('');
