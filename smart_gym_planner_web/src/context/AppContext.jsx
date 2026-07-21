@@ -435,7 +435,9 @@ export function AppProvider({ children }) {
   };
 
   const logOutUser = async () => {
-    await signOut(auth);
+    if (isFirebaseAvailable && auth) {
+      await signOut(auth);
+    }
     logout();
   };
 
