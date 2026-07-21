@@ -294,3 +294,4 @@ export const stretchingExercises = [
     requiredEquipment: [], difficulty: 'beginner',
   },
 ];
+

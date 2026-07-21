@@ -335,11 +335,11 @@ export default function Onboarding() {
             style={{
               opacity: (
                 (step === 1 && !name.trim()) ||
-                (step === 6 && (!height || !weight || parseFloat(height) <= 0 || parseFloat(weight) <= 0))
+                (step === 6 && (!weight || parseFloat(weight) <= 0))
               ) ? 0.5 : 1,
               cursor: (
                 (step === 1 && !name.trim()) ||
-                (step === 6 && (!height || !weight || parseFloat(height) <= 0 || parseFloat(weight) <= 0))
+                (step === 6 && (!weight || parseFloat(weight) <= 0))
               ) ? 'not-allowed' : 'pointer'
             }}
           >
