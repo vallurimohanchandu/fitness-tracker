@@ -12,10 +12,10 @@ export default function Profile() {
   } = useApp();
 
   const [isEditing, setIsEditing] = useState(false);
-  const [name, setName] = useState(user?.name || '');
-  const [goal, setGoal] = useState(user?.goal || 'muscle_gain');
+  const [name, setName] = useState(user?.fullName || user?.name || '');
+  const [goal, setGoal] = useState(user?.primaryGoal || user?.goal || 'muscle_gain');
   const [experienceLevel, setExperienceLevel] = useState(user?.experienceLevel || 'beginner');
-  const [workoutDays, setWorkoutDays] = useState(user?.workoutDaysPerWeek || 5);
+  const [workoutDays, setWorkoutDays] = useState(user?.workoutDays || user?.workoutDaysPerWeek || 5);
   const getFeetAndInches = (cm) => {
     if (!cm) return { feet: 5, inches: 7 };
     const totalInches = cm / 2.54;

@@ -1,20 +1,5 @@
 import React, { createContext, useState, useEffect, useContext } from 'react';
 import { generateWorkoutPlan } from '../utils/workoutGenerator';
-import { auth, db, googleProvider } from '../config/firebase';
-import {
-  signInWithEmailAndPassword,
-  createUserWithEmailAndPassword,
-  signOut,
-  sendPasswordResetEmail,
-  signInWithPopup,
-  onAuthStateChanged
-} from 'firebase/auth';
-import {
-  doc,
-  getDoc,
-  setDoc,
-  serverTimestamp
-} from 'firebase/firestore';
 
 const AppContext = createContext();
 
@@ -32,82 +17,60 @@ export function AppProvider({ children }) {
     return localStorage.getItem('sg_onboarding_done') === 'true';
   });
   const [isLoggedIn, setIsLoggedIn] = useState(false);
-  const isFirebaseAvailable = auth !== null;
-
-  // ── FIREBASE AUTH OBSERVER ───────────────────────────────────────────────
+  // ── AUTH OBSERVER & SESSION RESTORE ───────────────────────────────────────
   useEffect(() => {
-    if (!isFirebaseAvailable) {
-      // In Local Mode, load user from local storage
-      const rawUser = localStorage.getItem('sg_user');
-      if (rawUser) {
-        setUserState(JSON.parse(rawUser));
-        setIsLoggedIn(true);
-        setOnboardingDone(localStorage.getItem('sg_onboarding_done') === 'true');
-        
-        const savedPlan = localStorage.getItem('sg_workout_plan');
-        if (savedPlan) {
-          setWorkoutPlan(JSON.parse(savedPlan));
-        }
+    const fetchSession = async () => {
+      const token = localStorage.getItem('sg_auth_token');
+      if (!token) {
+        setAuthLoading(false);
+        return;
       }
-      setAuthLoading(false);
-      return;
-    }
-
-    const unsubscribe = onAuthStateChanged(auth, async (fUser) => {
-      if (fUser) {
-        setFirebaseUser(fUser);
-        setIsLoggedIn(true);
-        try {
-          const userDocRef = doc(db, 'users', fUser.uid);
-          const userDocSnap = await getDoc(userDocRef);
-          if (userDocSnap.exists()) {
-            const userData = userDocSnap.data();
-            setUserState(userData);
-            
-            const hasCompleted = userData.onboardingCompleted === true || 
-                                 (userData.weight && parseFloat(userData.weight) > 0);
-            
-            if (hasCompleted) {
-              if (!userData.onboardingCompleted) {
-                try {
-                  await setDoc(userDocRef, { ...userData, onboardingCompleted: true });
-                } catch (e) {
-                  console.error("Failed to auto-update onboardingCompleted field:", e);
-                }
-              }
-              setOnboardingDone(true);
-              localStorage.setItem('sg_onboarding_done', 'true');
-              
-              const savedPlan = localStorage.getItem('sg_workout_plan');
-              if (savedPlan) {
-                setWorkoutPlan(JSON.parse(savedPlan));
-              } else {
-                const plan = generateWorkoutPlan(userData);
-                setWorkoutPlan(plan);
-                localStorage.setItem('sg_workout_plan', JSON.stringify(plan));
-              }
-            } else {
-              setOnboardingDone(false);
-              localStorage.setItem('sg_onboarding_done', 'false');
-            }
-          } else {
-            setUserState(null);
-            setOnboardingDone(false);
-            localStorage.setItem('sg_onboarding_done', 'false');
+      
+      try {
+        const response = await fetch('/api/profile', {
+          headers: {
+            'Authorization': `Bearer ${token}`
           }
-        } catch (err) {
-          console.error("Error fetching user profile:", err);
+        });
+        if (response.ok) {
+          const profileData = await response.json();
+          setUserState(profileData);
+          setIsLoggedIn(true);
+          
+          const hasCompleted = profileData.onboardingCompleted === true || 
+                               (profileData.weight && parseFloat(profileData.weight) > 0);
+          
+          setOnboardingDone(hasCompleted);
+          localStorage.setItem('sg_onboarding_done', hasCompleted ? 'true' : 'false');
+          localStorage.setItem('sg_user', JSON.stringify(profileData));
+          
+          if (hasCompleted) {
+            const savedPlan = localStorage.getItem('sg_workout_plan');
+            if (savedPlan) {
+              setWorkoutPlan(JSON.parse(savedPlan));
+            } else {
+              const plan = generateWorkoutPlan(profileData);
+              setWorkoutPlan(plan);
+              localStorage.setItem('sg_workout_plan', JSON.stringify(plan));
+            }
+          }
+        } else {
+          // Token expired or invalid
+          localStorage.removeItem('sg_auth_token');
+          localStorage.removeItem('sg_user');
+          localStorage.removeItem('sg_onboarding_done');
+          setUserState(null);
+          setIsLoggedIn(false);
+          setOnboardingDone(false);
         }
-      } else {
-        setFirebaseUser(null);
-        setUserState(null);
-        setOnboardingDone(false);
-        setIsLoggedIn(false);
-        setWorkoutPlan(null);
+      } catch (err) {
+        console.error("Failed to query user profile session:", err);
+      } finally {
+        setAuthLoading(false);
       }
-      setAuthLoading(false);
-    });
-    return unsubscribe;
+    };
+    
+    fetchSession();
   }, []);
 
   const [unlockedAchievements, setUnlockedAchievements] = useState(() => {
@@ -158,10 +121,11 @@ export function AppProvider({ children }) {
       const tdee = bmr * 1.55;
 
       let c = Math.round(tdee);
-      if (user.goal === 'fat_loss') c = Math.round(tdee - 400);
-      else if (user.goal === 'muscle_gain') c = Math.round(tdee + 300);
+      const userGoal = user.primaryGoal || user.goal;
+      if (userGoal === 'fat_loss') c = Math.round(tdee - 400);
+      else if (userGoal === 'muscle_gain') c = Math.round(tdee + 300);
 
-      const p = Math.round(user.weight * (user.goal === 'muscle_gain' ? 1.8 : 1.6));
+      const p = Math.round(user.weight * (userGoal === 'muscle_gain' ? 1.8 : 1.6));
       const f = Math.round((c * 0.25) / 9);
       const carbsCal = c - (p * 4) - (f * 9);
       const cb = Math.round(Math.max(0, carbsCal / 4));
@@ -248,210 +212,131 @@ export function AppProvider({ children }) {
   };
 
   const saveUser = async (userData) => {
-    if (isFirebaseAvailable && auth.currentUser) {
-      const uid = auth.currentUser.uid;
-      const userProfile = {
-        uid,
-        fullName: userData.name || auth.currentUser.displayName || 'Athlete',
-        email: auth.currentUser.email || '',
-        profileImage: auth.currentUser.photoURL || '',
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-        onboardingCompleted: true,
-        ...userData
-      };
+    const token = localStorage.getItem('sg_auth_token');
+    const response = await fetch('/api/profile', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
+      },
+      body: JSON.stringify(userData)
+    });
 
-      try {
-        const userDocRef = doc(db, 'users', uid);
-        await setDoc(userDocRef, userProfile);
-
-        setUserState(userProfile);
-        localStorage.setItem('sg_user', JSON.stringify(userProfile));
-        localStorage.setItem('sg_onboarding_done', 'true');
-        setOnboardingDone(true);
-        setIsLoggedIn(true);
-
-        const plan = generateWorkoutPlan(userProfile);
-        setWorkoutPlan(plan);
-        localStorage.setItem('sg_workout_plan', JSON.stringify(plan));
-
-        setTimeout(() => {
-          unlockAchievement('first_step');
-        }, 1500);
-      } catch (err) {
-        console.error("Error saving user profile:", err);
-        throw err;
-      }
-    } else {
-      // Local Mode Fallback
-      const userProfile = {
-        onboardingCompleted: true,
-        ...user,
-        ...userData
-      };
-
-      const rawAccounts = localStorage.getItem('sg_local_accounts');
-      const accounts = rawAccounts ? JSON.parse(rawAccounts) : [];
-      const updatedAccounts = accounts.map(acc => {
-        if (acc.email.toLowerCase() === userProfile.email.toLowerCase()) {
-          return { ...acc, ...userProfile };
-        }
-        return acc;
-      });
-      localStorage.setItem('sg_local_accounts', JSON.stringify(updatedAccounts));
-
-      setUserState(userProfile);
-      localStorage.setItem('sg_user', JSON.stringify(userProfile));
-      localStorage.setItem('sg_onboarding_done', 'true');
-      setOnboardingDone(true);
-      setIsLoggedIn(true);
-
-      const plan = generateWorkoutPlan(userProfile);
-      setWorkoutPlan(plan);
-      localStorage.setItem('sg_workout_plan', JSON.stringify(plan));
-
-      setTimeout(() => {
-        unlockAchievement('first_step');
-      }, 1500);
+    const data = await response.json();
+    if (!response.ok) {
+      throw new Error(data.message || "Failed to update profile.");
     }
+
+    setUserState(data);
+    localStorage.setItem('sg_user', JSON.stringify(data));
+    localStorage.setItem('sg_onboarding_done', 'true');
+    setOnboardingDone(true);
+    setIsLoggedIn(true);
+
+    const plan = generateWorkoutPlan(data);
+    setWorkoutPlan(plan);
+    localStorage.setItem('sg_workout_plan', JSON.stringify(plan));
+
+    setTimeout(() => {
+      unlockAchievement('first_step');
+    }, 1500);
   };
 
   const signUpWithEmail = async (email, password, fullName) => {
-    if (isFirebaseAvailable) {
-      const userCredential = await createUserWithEmailAndPassword(auth, email, password);
-      const fUser = userCredential.user;
-
-      const baseProfile = {
-        uid: fUser.uid,
-        fullName,
-        email,
-        profileImage: '',
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString()
-      };
-
-      const userDocRef = doc(db, 'users', fUser.uid);
-      await setDoc(userDocRef, baseProfile);
-      return fUser;
-    } else {
-      // Local Mode Fallback: save to localStorage credentials list
-      const baseProfile = {
-        uid: 'local_' + new Date().getTime(),
-        fullName,
-        email,
-        password, // save password for local verify
-        profileImage: '',
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString()
-      };
-
-      const rawAccounts = localStorage.getItem('sg_local_accounts');
-      const accounts = rawAccounts ? JSON.parse(rawAccounts) : [];
-
-      if (accounts.some(acc => acc.email.toLowerCase() === email.toLowerCase())) {
-        const err = new Error("This email is already registered.");
-        err.code = 'auth/email-already-in-use';
-        throw err;
-      }
-
-      accounts.push(baseProfile);
-      localStorage.setItem('sg_local_accounts', JSON.stringify(accounts));
-
-      setUserState(baseProfile);
-      localStorage.setItem('sg_user', JSON.stringify(baseProfile));
-      setOnboardingDone(false);
-      setIsLoggedIn(true);
-      return baseProfile;
+    const response = await fetch('/api/auth/signup', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, password, fullName })
+    });
+    
+    const data = await response.json();
+    if (!response.ok) {
+      const err = new Error(data.message || "Failed to sign up.");
+      err.code = 'auth/email-already-in-use';
+      throw err;
     }
+
+    localStorage.setItem('sg_auth_token', data.token);
+    localStorage.setItem('sg_user', JSON.stringify(data.user));
+    localStorage.setItem('sg_onboarding_done', 'false');
+
+    setUserState(data.user);
+    setOnboardingDone(false);
+    setIsLoggedIn(true);
+    return data.user;
   };
 
   const loginWithEmail = async (email, password) => {
-    if (isFirebaseAvailable) {
-      const userCredential = await signInWithEmailAndPassword(auth, email, password);
-      return userCredential.user;
-    } else {
-      const rawAccounts = localStorage.getItem('sg_local_accounts');
-      const accounts = rawAccounts ? JSON.parse(rawAccounts) : [];
-      const match = accounts.find(acc => acc.email.toLowerCase() === email.toLowerCase() && acc.password === password);
-      if (!match) {
-        const err = new Error("Invalid email or password.");
-        err.code = 'auth/invalid-credential';
-        throw err;
-      }
+    const response = await fetch('/api/auth/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, password })
+    });
 
-      setUserState(match);
-      localStorage.setItem('sg_user', JSON.stringify(match));
-      
-      const hasCompleted = match.onboardingCompleted === true || (match.weight && parseFloat(match.weight) > 0);
-      
-      if (hasCompleted && !match.onboardingCompleted) {
-        match.onboardingCompleted = true;
-        const updatedAccounts = accounts.map(acc => acc.uid === match.uid ? match : acc);
-        localStorage.setItem('sg_local_accounts', JSON.stringify(updatedAccounts));
-      }
-
-      localStorage.setItem('sg_onboarding_done', hasCompleted ? 'true' : 'false');
-      setOnboardingDone(hasCompleted);
-      setIsLoggedIn(true);
-
-      if (hasCompleted) {
-        const plan = generateWorkoutPlan(match);
-        setWorkoutPlan(plan);
-        localStorage.setItem('sg_workout_plan', JSON.stringify(plan));
-      }
-      return match;
+    const data = await response.json();
+    if (!response.ok) {
+      const err = new Error(data.message || "Invalid email or password.");
+      err.code = 'auth/invalid-credential';
+      throw err;
     }
+
+    localStorage.setItem('sg_auth_token', data.token);
+    localStorage.setItem('sg_user', JSON.stringify(data.user));
+
+    const hasCompleted = data.user.onboardingCompleted === true || (data.user.weight && parseFloat(data.user.weight) > 0);
+    localStorage.setItem('sg_onboarding_done', hasCompleted ? 'true' : 'false');
+
+    setUserState(data.user);
+    setOnboardingDone(hasCompleted);
+    setIsLoggedIn(true);
+
+    if (hasCompleted) {
+      const plan = generateWorkoutPlan(data.user);
+      setWorkoutPlan(plan);
+      localStorage.setItem('sg_workout_plan', JSON.stringify(plan));
+    }
+    return data.user;
   };
 
   const loginWithGoogle = async () => {
-    if (isFirebaseAvailable) {
-      const userCredential = await signInWithPopup(auth, googleProvider);
-      const fUser = userCredential.user;
-
-      const userDocRef = doc(db, 'users', fUser.uid);
-      const userDocSnap = await getDoc(userDocRef);
-      if (!userDocSnap.exists()) {
-        const baseProfile = {
-          uid: fUser.uid,
-          fullName: fUser.displayName || 'Athlete',
-          email: fUser.email || '',
-          profileImage: fUser.photoURL || '',
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString()
-        };
-        await setDoc(userDocRef, baseProfile);
+    try {
+      const mockGoogleEmail = "googleathlete@gmail.com";
+      const mockGoogleName = "Google Athlete";
+      const mockGooglePassword = "GoogleAthletePassword123!";
+      
+      try {
+        await signUpWithEmail(mockGoogleEmail, mockGooglePassword, mockGoogleName);
+      } catch (signupErr) {
+        await loginWithEmail(mockGoogleEmail, mockGooglePassword);
       }
-      return fUser;
-    } else {
-      const localGoogleUser = {
-        uid: 'local_google_' + new Date().getTime(),
-        fullName: 'Google Athlete',
-        email: 'athlete@gmail.com',
-        profileImage: '',
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString()
-      };
-      setUserState(localGoogleUser);
-      localStorage.setItem('sg_user', JSON.stringify(localGoogleUser));
-      setOnboardingDone(false);
-      setIsLoggedIn(true);
-      return localGoogleUser;
+      
+      const currentToken = localStorage.getItem('sg_auth_token');
+      const profileResponse = await fetch('/api/profile', {
+        headers: {
+          'Authorization': `Bearer ${currentToken}`
+        }
+      });
+      const profileData = await profileResponse.json();
+      return profileData;
+    } catch (err) {
+      console.error("Google authentication failed:", err);
+      throw err;
     }
   };
 
   const sendPasswordReset = async (email) => {
-    if (isFirebaseAvailable) {
-      await sendPasswordResetEmail(auth, email);
-    } else {
-      const rawAccounts = localStorage.getItem('sg_local_accounts');
-      const accounts = rawAccounts ? JSON.parse(rawAccounts) : [];
-      if (!accounts.some(acc => acc.email.toLowerCase() === email.toLowerCase())) {
-        const err = new Error("No account found with this email.");
-        err.code = 'auth/user-not-found';
-        throw err;
-      }
-      return true;
+    const response = await fetch('/api/auth/forgot-password', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email })
+    });
+    const data = await response.json();
+    if (!response.ok) {
+      const err = new Error(data.message || "Failed to trigger reset email.");
+      err.code = 'auth/user-not-found';
+      throw err;
     }
+    return true;
   };
 
   const logout = () => {
@@ -477,9 +362,20 @@ export function AppProvider({ children }) {
   };
 
   const logOutUser = async () => {
-    if (isFirebaseAvailable && auth) {
-      await signOut(auth);
+    try {
+      const token = localStorage.getItem('sg_auth_token');
+      if (token) {
+        await fetch('/api/auth/logout', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        });
+      }
+    } catch (e) {
+      console.error("Logout request failed:", e);
     }
+    localStorage.removeItem('sg_auth_token');
     logout();
   };
 
