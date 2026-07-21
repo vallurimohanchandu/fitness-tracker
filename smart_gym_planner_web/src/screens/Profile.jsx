@@ -8,7 +8,7 @@ export default function Profile() {
     bmi,
     bmiCategory,
     saveUser,
-    logout
+    logOutUser: logout
   } = useApp();
 
   const [isEditing, setIsEditing] = useState(false);

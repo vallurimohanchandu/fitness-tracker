@@ -2,6 +2,8 @@ import React, { useState } from 'react';
 import { useApp } from './context/AppContext';
 import Onboarding from './screens/Onboarding';
 import Login from './screens/Login';
+import SignUp from './screens/SignUp';
+import ForgotPassword from './screens/ForgotPassword';
 import Dashboard from './screens/Dashboard';
 import WorkoutPlan from './screens/WorkoutPlan';
 import CalorieTracker from './screens/CalorieTracker';
@@ -10,20 +12,65 @@ import Profile from './screens/Profile';
 import { Dumbbell, LayoutDashboard, Calendar, Utensils, Scale, UserCheck } from 'lucide-react';
 
 export default function App() {
-  const { onboardingDone, isLoggedIn, setIsLoggedIn, achievementToast } = useApp();
+  const { onboardingDone, isLoggedIn, setIsLoggedIn, authLoading, achievementToast } = useApp();
   const [activeTab, setActiveTab] = useState('dashboard');
-  const [showRegister, setShowRegister] = useState(false);
+  const [authScreen, setAuthScreen] = useState('login');
+
+  if (authLoading) {
+    return (
+      <div style={{
+        minHeight: '100vh',
+        background: 'var(--bg-dark)',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        flexDirection: 'column',
+        gap: '16px'
+      }}>
+        <svg width="45" height="45" viewBox="0 0 38 38" stroke="var(--primary)" style={{ display: 'block' }}>
+          <g fill="none" fillRule="evenodd">
+            <g transform="translate(1 1)" strokeWidth="3">
+              <circle strokeOpacity=".1" cx="18" cy="18" r="18"/>
+              <path d="M36 18c0-9.94-8.06-18-18-18">
+                <animateTransform attributeName="transform" type="rotate" from="0 18 18" to="360 18 18" dur="0.8s" repeatCount="indefinite"/>
+              </path>
+            </g>
+          </g>
+        </svg>
+        <span style={{ color: 'var(--text-secondary)', fontSize: '13px', letterSpacing: '0.05em', fontWeight: 600, textTransform: 'uppercase' }}>
+          Loading Athlete Profile...
+        </span>
+      </div>
+    );
+  }
 
   if (!isLoggedIn) {
-    if (showRegister || !onboardingDone) {
-      return <Onboarding onCancel={() => setShowRegister(false)} />;
+    if (authScreen === 'signup') {
+      return (
+        <SignUp 
+          onSignupSuccess={() => setIsLoggedIn(true)} 
+          onLoginClick={() => setAuthScreen('login')} 
+        />
+      );
+    }
+    if (authScreen === 'forgot_password') {
+      return (
+        <ForgotPassword 
+          onBackToLogin={() => setAuthScreen('login')} 
+        />
+      );
     }
     return (
       <Login 
         onLoginSuccess={() => setIsLoggedIn(true)} 
-        onSignupClick={() => setShowRegister(true)} 
+        onSignupClick={() => setAuthScreen('signup')} 
+        onForgotPasswordClick={() => setAuthScreen('forgot_password')}
       />
     );
+  }
+
+  if (!onboardingDone) {
+    return <Onboarding />;
   }
 
   return (

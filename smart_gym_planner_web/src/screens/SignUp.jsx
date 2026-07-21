@@ -1,18 +1,53 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useApp } from '../context/AppContext';
-import { Lock, Mail, Eye, EyeOff } from 'lucide-react';
+import { Lock, Mail, User, Eye, EyeOff } from 'lucide-react';
 
-export default function Login({ onLoginSuccess, onSignupClick, onForgotPasswordClick }) {
-  const { loginWithEmail, loginWithGoogle } = useApp();
+export default function SignUp({ onSignupSuccess, onLoginClick }) {
+  const { signUpWithEmail, loginWithGoogle } = useApp();
+  const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [rememberMe, setRememberMe] = useState(false);
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [termsAccepted, setTermsAccepted] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState({});
+  const [strength, setStrength] = useState({ score: 0, label: 'Very Weak', color: 'var(--error)' });
+
+  // Password strength check criteria
+  const checkStrength = (pass) => {
+    if (!pass) return { score: 0, label: 'Very Weak', color: 'var(--error)' };
+    let score = 0;
+    if (pass.length >= 8) score++;
+    if (/[A-Z]/.test(pass)) score++;
+    if (/[a-z]/.test(pass)) score++;
+    if (/[0-9]/.test(pass)) score++;
+    if (/[!@#$%^&*(),.?":{}|<>]/.test(pass)) score++;
+
+    let label = 'Very Weak';
+    let color = 'var(--error)';
+    if (score >= 5) {
+      label = 'Strong';
+      color = 'var(--success)';
+    } else if (score >= 3) {
+      label = 'Medium';
+      color = 'var(--warning)';
+    } else if (score >= 1) {
+      label = 'Weak';
+      color = 'var(--error)';
+    }
+    return { score, label, color };
+  };
+
+  useEffect(() => {
+    setStrength(checkStrength(password));
+  }, [password]);
 
   const validate = () => {
     const newErrors = {};
+    if (!fullName.trim()) {
+      newErrors.fullName = 'Full Name is required';
+    }
     if (!email.trim()) {
       newErrors.email = 'Email is required';
     } else if (!/\S+@\S+\.\S+/.test(email)) {
@@ -20,8 +55,19 @@ export default function Login({ onLoginSuccess, onSignupClick, onForgotPasswordC
     }
     if (!password) {
       newErrors.password = 'Password is required';
-    } else if (password.length < 8) {
-      newErrors.password = 'Password must be at least 8 characters';
+    } else {
+      if (password.length < 8) {
+        newErrors.password = 'Password must be at least 8 characters';
+      }
+      if (!/[A-Z]/.test(password) || !/[a-z]/.test(password) || !/[0-9]/.test(password) || !/[!@#$%^&*(),.?":{}|<>]/.test(password)) {
+        newErrors.password = 'Password does not meet all criteria';
+      }
+    }
+    if (password !== confirmPassword) {
+      newErrors.confirmPassword = 'Passwords do not match';
+    }
+    if (!termsAccepted) {
+      newErrors.terms = 'You must accept the Terms and Conditions';
     }
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
@@ -34,20 +80,17 @@ export default function Login({ onLoginSuccess, onSignupClick, onForgotPasswordC
     setLoading(true);
     setErrors({});
     try {
-      await loginWithEmail(email, password);
-      if (rememberMe) {
-        localStorage.setItem('sg_remember_email', email);
-      } else {
-        localStorage.removeItem('sg_remember_email');
-      }
-      onLoginSuccess();
+      await signUpWithEmail(email, password, fullName);
+      onSignupSuccess();
     } catch (err) {
       console.error(err);
-      let errMsg = 'Failed to sign in. Please check your credentials.';
-      if (err.code === 'auth/user-not-found' || err.code === 'auth/wrong-password' || err.code === 'auth/invalid-credential') {
-        errMsg = 'Invalid email or password.';
+      let errMsg = 'Failed to create account. Please try again.';
+      if (err.code === 'auth/email-already-in-use') {
+        errMsg = 'This email is already registered.';
       } else if (err.code === 'auth/invalid-email') {
         errMsg = 'Invalid email address format.';
+      } else if (err.code === 'auth/weak-password') {
+        errMsg = 'The password is too weak.';
       }
       setErrors({ form: errMsg });
     } finally {
@@ -55,21 +98,20 @@ export default function Login({ onLoginSuccess, onSignupClick, onForgotPasswordC
     }
   };
 
-  const handleGoogleLogin = async () => {
+  const handleGoogleSignup = async () => {
     setLoading(true);
     setErrors({});
     try {
       await loginWithGoogle();
-      onLoginSuccess();
+      onSignupSuccess();
     } catch (err) {
       console.error(err);
-      setErrors({ form: 'Google authentication failed.' });
+      setErrors({ form: 'Google registration failed.' });
     } finally {
       setLoading(false);
     }
   };
 
-  // Google 'G' icon helper
   const GoogleIcon = () => (
     <svg viewBox="0 0 24 24" width="18" height="18" style={{ marginRight: '8px' }}>
       <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
@@ -89,11 +131,10 @@ export default function Login({ onLoginSuccess, onSignupClick, onForgotPasswordC
       position: 'relative',
       zIndex: 1
     }}>
-      {/* Dark glassmorphic card container */}
       <div className="glass-card animate-scale-up" style={{
         width: '100%',
-        maxWidth: '420px',
-        padding: '40px 32px',
+        maxWidth: '440px',
+        padding: '36px 32px',
         boxShadow: '0 20px 50px rgba(0, 0, 0, 0.45)',
         textAlign: 'center',
         background: 'var(--bg-card)',
@@ -101,19 +142,18 @@ export default function Login({ onLoginSuccess, onSignupClick, onForgotPasswordC
         border: '1px solid var(--border-color)',
         boxSizing: 'border-box'
       }}>
-        {/* Title */}
         <h1 style={{ 
-          fontSize: '32px', 
+          fontSize: '30px', 
           fontWeight: '800', 
           marginBottom: '8px', 
           fontFamily: 'var(--font-title)',
           color: '#fff',
           letterSpacing: '-0.02em'
         }}>
-          Ready to lift?
+          Create Profile
         </h1>
-        <p style={{ color: 'var(--text-secondary)', fontSize: '13px', marginBottom: '24px' }}>
-          Welcome back! Sign in to continue your journey.
+        <p style={{ color: 'var(--text-secondary)', fontSize: '13px', marginBottom: '20px' }}>
+          Sign up to unlock personalized workout and meal plans.
         </p>
 
         {errors.form && (
@@ -133,18 +173,40 @@ export default function Login({ onLoginSuccess, onSignupClick, onForgotPasswordC
           </div>
         )}
 
-        <form onSubmit={handleSubmit} style={{ display: 'grid', gap: '16px', textAlign: 'left', width: '100%' }}>
+        <form onSubmit={handleSubmit} style={{ display: 'grid', gap: '14px', textAlign: 'left', width: '100%' }}>
           <div>
-            <label htmlFor="login-email">Email Address</label>
+            <label htmlFor="signup-name">Full Name</label>
             <div style={{ position: 'relative' }}>
               <input
-                id="login-email"
+                id="signup-name"
+                type="text"
+                placeholder="Enter your full name"
+                value={fullName}
+                onChange={(e) => setFullName(e.target.value)}
+                style={{ 
+                  paddingLeft: '44px',
+                  borderColor: errors.fullName ? 'var(--error)' : 'var(--border-color)',
+                  boxShadow: errors.fullName ? '0 0 0 3px var(--error-glow)' : ''
+                }}
+                disabled={loading}
+                required
+              />
+              <User size={16} style={{ position: 'absolute', left: '16px', top: '16px', color: 'var(--text-muted)' }} />
+            </div>
+            {errors.fullName && <span style={{ color: 'var(--error)', fontSize: '11px', marginTop: '4px', display: 'block' }}>{errors.fullName}</span>}
+          </div>
+
+          <div>
+            <label htmlFor="signup-email">Email Address</label>
+            <div style={{ position: 'relative' }}>
+              <input
+                id="signup-email"
                 type="email"
                 placeholder="Enter your email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 style={{ 
-                  paddingLeft: '44px', 
+                  paddingLeft: '44px',
                   borderColor: errors.email ? 'var(--error)' : 'var(--border-color)',
                   boxShadow: errors.email ? '0 0 0 3px var(--error-glow)' : ''
                 }}
@@ -157,12 +219,12 @@ export default function Login({ onLoginSuccess, onSignupClick, onForgotPasswordC
           </div>
 
           <div>
-            <label htmlFor="login-password">Password</label>
+            <label htmlFor="signup-password">Password</label>
             <div style={{ position: 'relative' }}>
               <input
-                id="login-password"
+                id="signup-password"
                 type={showPassword ? 'text' : 'password'}
-                placeholder="Enter your password"
+                placeholder="Create a password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 style={{ 
@@ -193,14 +255,63 @@ export default function Login({ onLoginSuccess, onSignupClick, onForgotPasswordC
                 {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
               </button>
             </div>
+
+            {/* Dynamic Password Strength Indicator Bar */}
+            {password && (
+              <div style={{ marginTop: '8px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
+                  <span style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>Strength: <strong>{strength.label}</strong></span>
+                  <span style={{ fontSize: '10px', color: strength.color }}>{strength.score}/5</span>
+                </div>
+                <div style={{ height: '5px', background: 'rgba(255,255,255,0.05)', borderRadius: '4px', overflow: 'hidden' }}>
+                  <div style={{ 
+                    height: '100%', 
+                    width: `${(strength.score / 5) * 100}%`, 
+                    background: strength.color,
+                    transition: 'all 0.3s ease'
+                  }} />
+                </div>
+
+                {/* Micro-checkbox checks */}
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '4px', marginTop: '6px', fontSize: '10px' }}>
+                  <span style={{ color: password.length >= 8 ? 'var(--success)' : 'var(--text-muted)' }}>✓ Min 8 chars</span>
+                  <span style={{ color: /[A-Z]/.test(password) ? 'var(--success)' : 'var(--text-muted)' }}>✓ Uppercase letter</span>
+                  <span style={{ color: /[a-z]/.test(password) ? 'var(--success)' : 'var(--text-muted)' }}>✓ Lowercase letter</span>
+                  <span style={{ color: /[0-9]/.test(password) ? 'var(--success)' : 'var(--text-muted)' }}>✓ Number (0-9)</span>
+                  <span style={{ color: /[!@#$%^&*(),.?":{}|<>]/.test(password) ? 'var(--success)' : 'var(--text-muted)' }}>✓ Special character</span>
+                </div>
+              </div>
+            )}
             {errors.password && <span style={{ color: 'var(--error)', fontSize: '11px', marginTop: '4px', display: 'block' }}>{errors.password}</span>}
           </div>
 
-          {/* Remember Me and Forgot Password row */}
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '-4px' }}>
+          <div>
+            <label htmlFor="signup-confirm">Confirm Password</label>
+            <div style={{ position: 'relative' }}>
+              <input
+                id="signup-confirm"
+                type="password"
+                placeholder="Confirm your password"
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+                style={{ 
+                  paddingLeft: '44px',
+                  borderColor: errors.confirmPassword ? 'var(--error)' : 'var(--border-color)',
+                  boxShadow: errors.confirmPassword ? '0 0 0 3px var(--error-glow)' : ''
+                }}
+                disabled={loading}
+                required
+              />
+              <Lock size={16} style={{ position: 'absolute', left: '16px', top: '16px', color: 'var(--text-muted)' }} />
+            </div>
+            {errors.confirmPassword && <span style={{ color: 'var(--error)', fontSize: '11px', marginTop: '4px', display: 'block' }}>{errors.confirmPassword}</span>}
+          </div>
+
+          {/* Terms and Conditions checkbox */}
+          <div>
             <label style={{ 
               display: 'flex', 
-              alignItems: 'center', 
+              alignItems: 'flex-start', 
               gap: '8px', 
               cursor: 'pointer', 
               fontSize: '12px', 
@@ -210,22 +321,17 @@ export default function Login({ onLoginSuccess, onSignupClick, onForgotPasswordC
             }}>
               <input
                 type="checkbox"
-                checked={rememberMe}
-                onChange={(e) => setRememberMe(e.target.checked)}
-                style={{ width: '16px', height: '16px', cursor: 'pointer', background: 'var(--bg-darker)' }}
+                checked={termsAccepted}
+                onChange={(e) => setTermsAccepted(e.target.checked)}
+                style={{ width: '16px', height: '16px', cursor: 'pointer', background: 'var(--bg-darker)', marginTop: '2px' }}
                 disabled={loading}
               />
-              Remember Me
+              <span>I accept the <strong style={{ color: 'var(--primary)' }}>Terms & Conditions</strong> and Privacy Policy.</span>
             </label>
-            <span 
-              onClick={onForgotPasswordClick}
-              style={{ fontSize: '12px', color: 'var(--primary)', cursor: 'pointer', fontWeight: 600 }}
-            >
-              Forgot Password?
-            </span>
+            {errors.terms && <span style={{ color: 'var(--error)', fontSize: '11px', marginTop: '4px', display: 'block' }}>{errors.terms}</span>}
           </div>
 
-          {/* Login Button with loading spinner */}
+          {/* Sign Up Button */}
           <button 
             type="submit" 
             disabled={loading}
@@ -249,7 +355,7 @@ export default function Login({ onLoginSuccess, onSignupClick, onForgotPasswordC
                   </g>
                 </g>
               </svg>
-            ) : 'Login'}
+            ) : 'Create Account'}
           </button>
         </form>
 
@@ -259,16 +365,16 @@ export default function Login({ onLoginSuccess, onSignupClick, onForgotPasswordC
           display: 'flex',
           alignItems: 'center',
           gap: '12px',
-          margin: '24px 0 16px 0'
+          margin: '20px 0 14px 0'
         }}>
           <div style={{ flex: 1, height: '1px', background: 'var(--border-color)' }} />
           <span style={{ fontSize: '11px', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>OR</span>
           <div style={{ flex: 1, height: '1px', background: 'var(--border-color)' }} />
         </div>
 
-        {/* Google button */}
+        {/* Google Signup Button */}
         <button 
-          onClick={handleGoogleLogin} 
+          onClick={handleGoogleSignup} 
           disabled={loading}
           style={{
             width: '100%',
@@ -290,17 +396,17 @@ export default function Login({ onLoginSuccess, onSignupClick, onForgotPasswordC
           onMouseOut={(e) => e.currentTarget.style.background = 'rgba(255, 255, 255, 0.03)'}
         >
           <GoogleIcon />
-          Continue with Google
+          Sign Up with Google
         </button>
 
-        {/* Signup Link */}
-        <div style={{ fontSize: '13px', color: 'var(--text-secondary)', marginTop: '24px', fontWeight: 500 }}>
-          Don't have an account?{' '}
+        {/* Redirect to login Link */}
+        <div style={{ fontSize: '13px', color: 'var(--text-secondary)', marginTop: '20px', fontWeight: 500 }}>
+          Already have an account?{' '}
           <span 
-            onClick={onSignupClick}
+            onClick={onLoginClick}
             style={{ color: 'var(--primary)', fontWeight: '700', cursor: 'pointer', textDecoration: 'underline' }}
           >
-            Sign Up
+            Login
           </span>
         </div>
       </div>

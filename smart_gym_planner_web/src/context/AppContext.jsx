@@ -1,9 +1,28 @@
 import React, { createContext, useState, useEffect, useContext } from 'react';
 import { generateWorkoutPlan } from '../utils/workoutGenerator';
+import { auth, db, googleProvider } from '../config/firebase';
+import {
+  signInWithEmailAndPassword,
+  createUserWithEmailAndPassword,
+  signOut,
+  sendPasswordResetEmail,
+  signInWithPopup,
+  onAuthStateChanged
+} from 'firebase/auth';
+import {
+  doc,
+  getDoc,
+  setDoc,
+  serverTimestamp
+} from 'firebase/firestore';
 
 const AppContext = createContext();
 
 export function AppProvider({ children }) {
+  // ── FIREBASE AUTH STATE ──────────────────────────────────────────────────
+  const [firebaseUser, setFirebaseUser] = useState(null);
+  const [authLoading, setAuthLoading] = useState(true);
+
   // ── USER STATE ───────────────────────────────────────────────────────────
   const [user, setUserState] = useState(() => {
     const raw = localStorage.getItem('sg_user');
@@ -13,6 +32,50 @@ export function AppProvider({ children }) {
     return localStorage.getItem('sg_onboarding_done') === 'true';
   });
   const [isLoggedIn, setIsLoggedIn] = useState(false);
+
+  // ── FIREBASE AUTH OBSERVER ───────────────────────────────────────────────
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, async (fUser) => {
+      if (fUser) {
+        setFirebaseUser(fUser);
+        setIsLoggedIn(true);
+        // Fetch Firestore user doc
+        try {
+          const userDocRef = doc(db, 'users', fUser.uid);
+          const userDocSnap = await getDoc(userDocRef);
+          if (userDocSnap.exists()) {
+            const userData = userDocSnap.data();
+            setUserState(userData);
+            setOnboardingDone(true);
+            
+            // Load workout plan
+            const savedPlan = localStorage.getItem('sg_workout_plan');
+            if (savedPlan) {
+              setWorkoutPlan(JSON.parse(savedPlan));
+            } else {
+              const plan = generateWorkoutPlan(userData);
+              setWorkoutPlan(plan);
+              localStorage.setItem('sg_workout_plan', JSON.stringify(plan));
+            }
+          } else {
+            // Authenticated but onboarding not complete
+            setUserState(null);
+            setOnboardingDone(false);
+          }
+        } catch (err) {
+          console.error("Error fetching user profile:", err);
+        }
+      } else {
+        setFirebaseUser(null);
+        setUserState(null);
+        setOnboardingDone(false);
+        setIsLoggedIn(false);
+        setWorkoutPlan(null);
+      }
+      setAuthLoading(false);
+    });
+    return unsubscribe;
+  }, []);
 
   const [unlockedAchievements, setUnlockedAchievements] = useState(() => {
     const raw = localStorage.getItem('sg_unlocked_achievements');
@@ -151,22 +214,88 @@ export function AppProvider({ children }) {
     localStorage.setItem('sg_logged_sets', JSON.stringify(updated));
   };
 
-  const saveUser = (userData) => {
-    setUserState(userData);
-    localStorage.setItem('sg_user', JSON.stringify(userData));
-    localStorage.setItem('sg_onboarding_done', 'true');
-    setOnboardingDone(true);
-    setIsLoggedIn(true);
+  const saveUser = async (userData) => {
+    if (!auth.currentUser) return;
+    const uid = auth.currentUser.uid;
 
-    // Auto-generate workout plan on onboarding completion
-    const plan = generateWorkoutPlan(userData);
-    setWorkoutPlan(plan);
-    localStorage.setItem('sg_workout_plan', JSON.stringify(plan));
+    const userProfile = {
+      uid,
+      fullName: userData.name || auth.currentUser.displayName || 'Athlete',
+      email: auth.currentUser.email || '',
+      profileImage: auth.currentUser.photoURL || '',
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+      ...userData
+    };
 
-    // Unlock first achievement
-    setTimeout(() => {
-      unlockAchievement('first_step');
-    }, 1500);
+    try {
+      const userDocRef = doc(db, 'users', uid);
+      await setDoc(userDocRef, userProfile);
+
+      setUserState(userProfile);
+      localStorage.setItem('sg_user', JSON.stringify(userProfile));
+      localStorage.setItem('sg_onboarding_done', 'true');
+      setOnboardingDone(true);
+      setIsLoggedIn(true);
+
+      const plan = generateWorkoutPlan(userProfile);
+      setWorkoutPlan(plan);
+      localStorage.setItem('sg_workout_plan', JSON.stringify(plan));
+
+      setTimeout(() => {
+        unlockAchievement('first_step');
+      }, 1500);
+    } catch (err) {
+      console.error("Error saving user profile:", err);
+      throw err;
+    }
+  };
+
+  const signUpWithEmail = async (email, password, fullName) => {
+    const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+    const fUser = userCredential.user;
+
+    const baseProfile = {
+      uid: fUser.uid,
+      fullName,
+      email,
+      profileImage: '',
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
+    };
+
+    const userDocRef = doc(db, 'users', fUser.uid);
+    await setDoc(userDocRef, baseProfile);
+    return fUser;
+  };
+
+  const loginWithEmail = async (email, password) => {
+    const userCredential = await signInWithEmailAndPassword(auth, email, password);
+    return userCredential.user;
+  };
+
+  const loginWithGoogle = async () => {
+    const userCredential = await signInWithPopup(auth, googleProvider);
+    const fUser = userCredential.user;
+
+    const userDocRef = doc(db, 'users', fUser.uid);
+    const userDocSnap = await getDoc(userDocRef);
+    if (!userDocSnap.exists()) {
+      const baseProfile = {
+        uid: fUser.uid,
+        fullName: fUser.displayName || 'Athlete',
+        email: fUser.email || '',
+        profileImage: fUser.photoURL || '',
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      };
+      await setDoc(userDocRef, baseProfile);
+    }
+    return fUser;
+  };
+
+  const sendPasswordReset = async (email) => {
+    await sendPasswordResetEmail(auth, email);
   };
 
   const logout = () => {
@@ -189,6 +318,11 @@ export function AppProvider({ children }) {
     localStorage.removeItem('sg_current_streak');
     localStorage.removeItem('sg_last_active_date');
     localStorage.removeItem('sg_logged_sets');
+  };
+
+  const logOutUser = async () => {
+    await signOut(auth);
+    logout();
   };
 
   // ── WORKOUT PLAN STATE ───────────────────────────────────────────────────
@@ -411,11 +545,18 @@ export function AppProvider({ children }) {
         onboardingDone,
         isLoggedIn,
         setIsLoggedIn,
+        authLoading,
+        firebaseUser,
+        signUpWithEmail,
+        loginWithEmail,
+        loginWithGoogle,
+        sendPasswordReset,
+        saveUser,
+        logout,
+        logOutUser,
         bmi,
         bmiCategory,
         nutritionTarget,
-        saveUser,
-        logout,
 
         // Achievements & Streaks
         unlockedAchievements,
