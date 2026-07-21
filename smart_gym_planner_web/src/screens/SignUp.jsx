@@ -3,7 +3,7 @@ import { useApp } from '../context/AppContext';
 import { Lock, Mail, User, Eye, EyeOff } from 'lucide-react';
 
 export default function SignUp({ onSignupSuccess, onLoginClick }) {
-  const { signUpWithEmail, loginWithGoogle } = useApp();
+  const { signUpWithEmail, loginWithGoogle, isFirebaseAvailable } = useApp();
   const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -142,6 +142,25 @@ export default function SignUp({ onSignupSuccess, onLoginClick }) {
         border: '1px solid var(--border-color)',
         boxSizing: 'border-box'
       }}>
+        {/* Fallback local mode warning */}
+        {!isFirebaseAvailable && (
+          <div style={{
+            background: 'var(--warning-glow)',
+            border: '1px solid var(--warning)',
+            color: 'var(--warning)',
+            padding: '8px 12px',
+            borderRadius: '10px',
+            fontSize: '11px',
+            marginBottom: '16px',
+            textAlign: 'center',
+            width: '100%',
+            boxSizing: 'border-box',
+            lineHeight: 1.4
+          }}>
+            ⚠️ Firebase environment variables are not configured. Running in Local Mode.
+          </div>
+        )}
+
         <h1 style={{ 
           fontSize: '30px', 
           fontWeight: '800', 

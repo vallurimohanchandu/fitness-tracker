@@ -32,9 +32,27 @@ export function AppProvider({ children }) {
     return localStorage.getItem('sg_onboarding_done') === 'true';
   });
   const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const isFirebaseAvailable = auth !== null;
 
   // ── FIREBASE AUTH OBSERVER ───────────────────────────────────────────────
   useEffect(() => {
+    if (!isFirebaseAvailable) {
+      // In Local Mode, load user from local storage
+      const rawUser = localStorage.getItem('sg_user');
+      if (rawUser) {
+        setUserState(JSON.parse(rawUser));
+        setIsLoggedIn(true);
+        setOnboardingDone(localStorage.getItem('sg_onboarding_done') === 'true');
+        
+        const savedPlan = localStorage.getItem('sg_workout_plan');
+        if (savedPlan) {
+          setWorkoutPlan(JSON.parse(savedPlan));
+        }
+      }
+      setAuthLoading(false);
+      return;
+    }
+
     const unsubscribe = onAuthStateChanged(auth, async (fUser) => {
       if (fUser) {
         setFirebaseUser(fUser);
@@ -215,87 +233,183 @@ export function AppProvider({ children }) {
   };
 
   const saveUser = async (userData) => {
-    if (!auth.currentUser) return;
-    const uid = auth.currentUser.uid;
+    if (isFirebaseAvailable && auth.currentUser) {
+      const uid = auth.currentUser.uid;
+      const userProfile = {
+        uid,
+        fullName: userData.name || auth.currentUser.displayName || 'Athlete',
+        email: auth.currentUser.email || '',
+        profileImage: auth.currentUser.photoURL || '',
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        ...userData
+      };
 
-    const userProfile = {
-      uid,
-      fullName: userData.name || auth.currentUser.displayName || 'Athlete',
-      email: auth.currentUser.email || '',
-      profileImage: auth.currentUser.photoURL || '',
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-      ...userData
-    };
+      try {
+        const userDocRef = doc(db, 'users', uid);
+        await setDoc(userDocRef, userProfile);
 
-    try {
-      const userDocRef = doc(db, 'users', uid);
-      await setDoc(userDocRef, userProfile);
+        setUserState(userProfile);
+        localStorage.setItem('sg_user', JSON.stringify(userProfile));
+        localStorage.setItem('sg_onboarding_done', 'true');
+        setOnboardingDone(true);
+        setIsLoggedIn(true);
 
-      setUserState(userProfile);
-      localStorage.setItem('sg_user', JSON.stringify(userProfile));
+        const plan = generateWorkoutPlan(userProfile);
+        setWorkoutPlan(plan);
+        localStorage.setItem('sg_workout_plan', JSON.stringify(plan));
+
+        setTimeout(() => {
+          unlockAchievement('first_step');
+        }, 1500);
+      } catch (err) {
+        console.error("Error saving user profile:", err);
+        throw err;
+      }
+    } else {
+      // Local Mode Fallback
+      setUserState(userData);
+      localStorage.setItem('sg_user', JSON.stringify(userData));
       localStorage.setItem('sg_onboarding_done', 'true');
       setOnboardingDone(true);
       setIsLoggedIn(true);
 
-      const plan = generateWorkoutPlan(userProfile);
+      const plan = generateWorkoutPlan(userData);
       setWorkoutPlan(plan);
       localStorage.setItem('sg_workout_plan', JSON.stringify(plan));
 
       setTimeout(() => {
         unlockAchievement('first_step');
       }, 1500);
-    } catch (err) {
-      console.error("Error saving user profile:", err);
-      throw err;
     }
   };
 
   const signUpWithEmail = async (email, password, fullName) => {
-    const userCredential = await createUserWithEmailAndPassword(auth, email, password);
-    const fUser = userCredential.user;
+    if (isFirebaseAvailable) {
+      const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+      const fUser = userCredential.user;
 
-    const baseProfile = {
-      uid: fUser.uid,
-      fullName,
-      email,
-      profileImage: '',
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString()
-    };
-
-    const userDocRef = doc(db, 'users', fUser.uid);
-    await setDoc(userDocRef, baseProfile);
-    return fUser;
-  };
-
-  const loginWithEmail = async (email, password) => {
-    const userCredential = await signInWithEmailAndPassword(auth, email, password);
-    return userCredential.user;
-  };
-
-  const loginWithGoogle = async () => {
-    const userCredential = await signInWithPopup(auth, googleProvider);
-    const fUser = userCredential.user;
-
-    const userDocRef = doc(db, 'users', fUser.uid);
-    const userDocSnap = await getDoc(userDocRef);
-    if (!userDocSnap.exists()) {
       const baseProfile = {
         uid: fUser.uid,
-        fullName: fUser.displayName || 'Athlete',
-        email: fUser.email || '',
-        profileImage: fUser.photoURL || '',
+        fullName,
+        email,
+        profileImage: '',
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString()
       };
+
+      const userDocRef = doc(db, 'users', fUser.uid);
       await setDoc(userDocRef, baseProfile);
+      return fUser;
+    } else {
+      // Local Mode Fallback: save to localStorage credentials list
+      const baseProfile = {
+        uid: 'local_' + new Date().getTime(),
+        fullName,
+        email,
+        password, // save password for local verify
+        profileImage: '',
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      };
+
+      const rawAccounts = localStorage.getItem('sg_local_accounts');
+      const accounts = rawAccounts ? JSON.parse(rawAccounts) : [];
+
+      if (accounts.some(acc => acc.email.toLowerCase() === email.toLowerCase())) {
+        const err = new Error("This email is already registered.");
+        err.code = 'auth/email-already-in-use';
+        throw err;
+      }
+
+      accounts.push(baseProfile);
+      localStorage.setItem('sg_local_accounts', JSON.stringify(accounts));
+
+      setUserState(baseProfile);
+      localStorage.setItem('sg_user', JSON.stringify(baseProfile));
+      setOnboardingDone(false);
+      setIsLoggedIn(true);
+      return baseProfile;
     }
-    return fUser;
+  };
+
+  const loginWithEmail = async (email, password) => {
+    if (isFirebaseAvailable) {
+      const userCredential = await signInWithEmailAndPassword(auth, email, password);
+      return userCredential.user;
+    } else {
+      const rawAccounts = localStorage.getItem('sg_local_accounts');
+      const accounts = rawAccounts ? JSON.parse(rawAccounts) : [];
+      const match = accounts.find(acc => acc.email.toLowerCase() === email.toLowerCase() && acc.password === password);
+      if (!match) {
+        const err = new Error("Invalid email or password.");
+        err.code = 'auth/invalid-credential';
+        throw err;
+      }
+
+      setUserState(match);
+      localStorage.setItem('sg_user', JSON.stringify(match));
+      localStorage.setItem('sg_onboarding_done', match.weight ? 'true' : 'false');
+      setOnboardingDone(match.weight ? true : false);
+      setIsLoggedIn(true);
+
+      const savedPlan = localStorage.getItem('sg_workout_plan');
+      if (savedPlan) {
+        setWorkoutPlan(JSON.parse(savedPlan));
+      }
+      return match;
+    }
+  };
+
+  const loginWithGoogle = async () => {
+    if (isFirebaseAvailable) {
+      const userCredential = await signInWithPopup(auth, googleProvider);
+      const fUser = userCredential.user;
+
+      const userDocRef = doc(db, 'users', fUser.uid);
+      const userDocSnap = await getDoc(userDocRef);
+      if (!userDocSnap.exists()) {
+        const baseProfile = {
+          uid: fUser.uid,
+          fullName: fUser.displayName || 'Athlete',
+          email: fUser.email || '',
+          profileImage: fUser.photoURL || '',
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString()
+        };
+        await setDoc(userDocRef, baseProfile);
+      }
+      return fUser;
+    } else {
+      const localGoogleUser = {
+        uid: 'local_google_' + new Date().getTime(),
+        fullName: 'Google Athlete',
+        email: 'athlete@gmail.com',
+        profileImage: '',
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      };
+      setUserState(localGoogleUser);
+      localStorage.setItem('sg_user', JSON.stringify(localGoogleUser));
+      setOnboardingDone(false);
+      setIsLoggedIn(true);
+      return localGoogleUser;
+    }
   };
 
   const sendPasswordReset = async (email) => {
-    await sendPasswordResetEmail(auth, email);
+    if (isFirebaseAvailable) {
+      await sendPasswordResetEmail(auth, email);
+    } else {
+      const rawAccounts = localStorage.getItem('sg_local_accounts');
+      const accounts = rawAccounts ? JSON.parse(rawAccounts) : [];
+      if (!accounts.some(acc => acc.email.toLowerCase() === email.toLowerCase())) {
+        const err = new Error("No account found with this email.");
+        err.code = 'auth/user-not-found';
+        throw err;
+      }
+      return true;
+    }
   };
 
   const logout = () => {
@@ -545,6 +659,7 @@ export function AppProvider({ children }) {
         onboardingDone,
         isLoggedIn,
         setIsLoggedIn,
+        isFirebaseAvailable,
         authLoading,
         firebaseUser,
         signUpWithEmail,
