@@ -72,77 +72,86 @@ export default function Onboarding({ onCancel }) {
       display: 'flex',
       alignItems: 'center',
       justifyContent: 'center',
-      padding: '20px'
+      padding: '20px',
+      background: '#f0f4f8', // Matching the login screen light background
+      fontFamily: 'system-ui, -apple-system, sans-serif'
     }}>
-      <div className="glass-card animate-scale-up" style={{
+      {/* Clean White Card matching the sign-in layout */}
+      <div className="animate-scale-up" style={{
         width: '100%',
-        maxWidth: '520px',
-        padding: '36px',
-        position: 'relative',
-        boxShadow: '0 20px 50px rgba(0, 0, 0, 0.45)',
-        border: '1px solid rgba(255, 255, 255, 0.08)'
+        maxWidth: '540px',
+        padding: '40px 32px',
+        background: '#ffffff',
+        borderRadius: '24px',
+        boxShadow: '0 15px 35px rgba(0, 0, 0, 0.05)',
+        border: '1px solid rgba(0, 0, 0, 0.02)',
+        color: '#1a1a1a',
+        boxSizing: 'border-box'
       }}>
-        {/* Progress Bar */}
-        <div style={{
-          position: 'absolute',
-          top: 0,
-          left: 0,
-          width: '100%',
-          height: '4px',
-          background: 'rgba(255,255,255,0.03)',
-          borderRadius: '4px 4px 0 0',
-          overflow: 'hidden'
-        }}>
-          <div style={{
-            width: `${progressPercent}%`,
-            height: '100%',
-            background: 'var(--primary-gradient)',
-            transition: 'width var(--transition-normal)'
-          }} />
-        </div>
-
-        {/* Step Indicator */}
+        {/* Step Indicator Header */}
         <div style={{
           display: 'flex',
           justifyContent: 'space-between',
           alignItems: 'center',
-          marginBottom: '28px',
-          color: 'var(--text-secondary)',
+          marginBottom: '24px',
+          color: '#666',
           fontSize: '13px',
           fontWeight: 600
         }}>
           <span>Step {step} of 6</span>
-          <span style={{ color: 'var(--primary)' }}>{Math.round(progressPercent)}% Complete</span>
+          <span style={{ color: '#2563eb' }}>{Math.round(progressPercent)}% Complete</span>
         </div>
 
         {/* STEP 1: Name & Password */}
         {step === 1 && (
           <div className="animate-fade-in" style={{ display: 'grid', gap: '16px' }}>
             <div>
-              <h2 style={{ fontSize: '26px', marginBottom: '12px' }}>Welcome! Create your account</h2>
-              <p style={{ color: 'var(--text-secondary)', fontSize: '14px', marginBottom: '24px' }}>
+              <h2 style={{ fontSize: '24px', fontWeight: '800', marginBottom: '8px', color: '#1a1a1a' }}>Create your account</h2>
+              <p style={{ color: '#666', fontSize: '14px', marginBottom: '16px' }}>
                 Let's customize your fitness experience.
               </p>
             </div>
             <div>
-              <label htmlFor="name-input">Username</label>
+              <label htmlFor="name-input" style={{ fontSize: '13px', fontWeight: 500, color: '#4d4d4d', display: 'block', marginBottom: '6px' }}>Username</label>
               <input
                 id="name-input"
                 type="text"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 placeholder="Choose a username"
+                style={{
+                  height: '44px',
+                  borderRadius: '8px',
+                  border: '1px solid #cbd5e1',
+                  background: '#f8fafc',
+                  padding: '0 16px',
+                  fontSize: '15px',
+                  color: '#1e293b',
+                  width: '100%',
+                  boxSizing: 'border-box'
+                }}
                 autoFocus
               />
             </div>
             <div>
-              <label htmlFor="password-input">Password</label>
+              <label htmlFor="password-input" style={{ fontSize: '13px', fontWeight: 500, color: '#4d4d4d', display: 'block', marginBottom: '6px' }}>Password</label>
               <input
                 id="password-input"
                 type="password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="Choose a password"
+                style={{
+                  height: '44px',
+                  borderRadius: '8px',
+                  border: '1px solid #cbd5e1',
+                  background: '#f8fafc',
+                  padding: '0 16px',
+                  fontSize: '15px',
+                  color: '#1e293b',
+                  width: '100%',
+                  boxSizing: 'border-box'
+                }}
               />
             </div>
           </div>
@@ -151,8 +160,8 @@ export default function Onboarding({ onCancel }) {
         {/* STEP 2: Experience Level */}
         {step === 2 && (
           <div className="animate-fade-in">
-            <h2 style={{ fontSize: '26px', marginBottom: '12px' }}>Your experience level?</h2>
-            <p style={{ color: 'var(--text-secondary)', fontSize: '14px', marginBottom: '24px' }}>
+            <h2 style={{ fontSize: '24px', fontWeight: '800', marginBottom: '8px', color: '#1a1a1a' }}>Your experience level?</h2>
+            <p style={{ color: '#666', fontSize: '14px', marginBottom: '20px' }}>
               We'll filter exercises based on your physical familiarity.
             </p>
             <div style={{ display: 'grid', gap: '12px' }}>
@@ -167,14 +176,15 @@ export default function Onboarding({ onCancel }) {
                   style={{
                     padding: '16px',
                     borderRadius: '12px',
-                    background: experienceLevel === opt.id ? 'var(--primary-glow)' : 'var(--bg-darker)',
-                    border: `1px solid ${experienceLevel === opt.id ? 'var(--primary)' : 'var(--border-color)'}`,
+                    background: experienceLevel === opt.id ? '#eff6ff' : '#f8fafc',
+                    border: `2px solid ${experienceLevel === opt.id ? '#2563eb' : '#e2e8f0'}`,
                     cursor: 'pointer',
-                    transition: 'var(--transition-fast)'
+                    transition: 'all 0.2s ease',
+                    boxSizing: 'border-box'
                   }}
                 >
-                  <div style={{ fontWeight: 'bold', fontSize: '15px', color: '#fff', marginBottom: '4px' }}>{opt.title}</div>
-                  <div style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>{opt.desc}</div>
+                  <div style={{ fontWeight: 'bold', fontSize: '15px', color: experienceLevel === opt.id ? '#1e3a8a' : '#1a1a1a', marginBottom: '4px' }}>{opt.title}</div>
+                  <div style={{ fontSize: '12px', color: '#666' }}>{opt.desc}</div>
                 </div>
               ))}
             </div>
@@ -184,8 +194,8 @@ export default function Onboarding({ onCancel }) {
         {/* STEP 3: Days Per Week */}
         {step === 3 && (
           <div className="animate-fade-in">
-            <h2 style={{ fontSize: '26px', marginBottom: '12px' }}>How many days a week?</h2>
-            <p style={{ color: 'var(--text-secondary)', fontSize: '14px', marginBottom: '24px' }}>
+            <h2 style={{ fontSize: '24px', fontWeight: '800', marginBottom: '8px', color: '#1a1a1a' }}>How many days a week?</h2>
+            <p style={{ color: '#666', fontSize: '14px', marginBottom: '20px' }}>
               Pick your frequency so we can structure your splits.
             </p>
             <div style={{ display: 'flex', gap: '16px' }}>
@@ -193,21 +203,25 @@ export default function Onboarding({ onCancel }) {
                 <button
                   key={days}
                   onClick={() => setWorkoutDaysPerWeek(days)}
-                  className="secondary"
                   style={{
                     flex: 1,
                     padding: '24px 0',
-                    borderRadius: '16px',
+                    borderRadius: '12px',
                     flexDirection: 'column',
-                    background: workoutDaysPerWeek === days ? 'var(--primary-gradient)' : 'rgba(255,255,255,0.02)',
-                    borderColor: workoutDaysPerWeek === days ? 'var(--primary)' : 'var(--border-color)',
-                    boxShadow: workoutDaysPerWeek === days ? '0 6px 15px var(--primary-glow)' : 'none',
-                    color: '#fff'
+                    background: workoutDaysPerWeek === days ? '#eff6ff' : '#f8fafc',
+                    border: `2px solid ${workoutDaysPerWeek === days ? '#2563eb' : '#e2e8f0'}`,
+                    color: workoutDaysPerWeek === days ? '#1e3a8a' : '#1a1a1a',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    cursor: 'pointer',
+                    transition: 'all 0.2s ease',
+                    boxShadow: 'none'
                   }}
                 >
-                  <Calendar size={22} style={{ marginBottom: '8px', color: workoutDaysPerWeek === days ? '#fff' : 'var(--primary)' }} />
-                  <div style={{ fontSize: '20px', fontWeight: 'bold' }}>{days}</div>
-                  <div style={{ fontSize: '11px', color: workoutDaysPerWeek === days ? 'rgba(255,255,255,0.8)' : 'var(--text-secondary)' }}>days / week</div>
+                  <Calendar size={22} style={{ marginBottom: '8px', color: workoutDaysPerWeek === days ? '#2563eb' : '#666' }} />
+                  <div style={{ fontSize: '22px', fontWeight: 'bold' }}>{days}</div>
+                  <div style={{ fontSize: '11px', color: '#666' }}>days / week</div>
                 </button>
               ))}
             </div>
@@ -217,8 +231,8 @@ export default function Onboarding({ onCancel }) {
         {/* STEP 4: Goals */}
         {step === 4 && (
           <div className="animate-fade-in">
-            <h2 style={{ fontSize: '26px', marginBottom: '12px' }}>What is your goal?</h2>
-            <p style={{ color: 'var(--text-secondary)', fontSize: '14px', marginBottom: '24px' }}>
+            <h2 style={{ fontSize: '24px', fontWeight: '800', marginBottom: '8px', color: '#1a1a1a' }}>What is your goal?</h2>
+            <p style={{ color: '#666', fontSize: '14px', marginBottom: '20px' }}>
               Used to calculate target calories and workout intensities.
             </p>
             <div style={{ display: 'grid', gap: '12px' }}>
@@ -233,19 +247,20 @@ export default function Onboarding({ onCancel }) {
                   style={{
                     padding: '16px',
                     borderRadius: '12px',
-                    background: goal === opt.id ? 'var(--primary-glow)' : 'var(--bg-darker)',
-                    border: `1px solid ${goal === opt.id ? 'var(--primary)' : 'var(--border-color)'}`,
+                    background: goal === opt.id ? '#eff6ff' : '#f8fafc',
+                    border: `2px solid ${goal === opt.id ? '#2563eb' : '#e2e8f0'}`,
                     cursor: 'pointer',
                     display: 'flex',
                     alignItems: 'center',
                     gap: '16px',
-                    transition: 'var(--transition-fast)'
+                    transition: 'all 0.2s ease',
+                    boxSizing: 'border-box'
                   }}
                 >
                   <span style={{ fontSize: '24px' }}>{opt.icon}</span>
                   <div>
-                    <div style={{ fontWeight: 'bold', fontSize: '15px', color: '#fff', marginBottom: '2px' }}>{opt.title}</div>
-                    <div style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>{opt.desc}</div>
+                    <div style={{ fontWeight: 'bold', fontSize: '15px', color: goal === opt.id ? '#1e3a8a' : '#1a1a1a', marginBottom: '2px' }}>{opt.title}</div>
+                    <div style={{ fontSize: '12px', color: '#666' }}>{opt.desc}</div>
                   </div>
                 </div>
               ))}
@@ -256,11 +271,11 @@ export default function Onboarding({ onCancel }) {
         {/* STEP 5: Equipment */}
         {step === 5 && (
           <div className="animate-fade-in">
-            <h2 style={{ fontSize: '26px', marginBottom: '12px' }}>What equipment do you have?</h2>
-            <p style={{ color: 'var(--text-secondary)', fontSize: '14px', marginBottom: '24px' }}>
-              Select all available tools. We will tailor exercises.
+            <h2 style={{ fontSize: '24px', fontWeight: '800', marginBottom: '8px', color: '#1a1a1a' }}>What equipment do you have?</h2>
+            <p style={{ color: '#666', fontSize: '14px', marginBottom: '20px' }}>
+              Select all that apply. We'll build routines accordingly.
             </p>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '12px' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
               {equipmentOptions.map(opt => {
                 const isSelected = equipment.includes(opt.id);
                 return (
@@ -270,19 +285,18 @@ export default function Onboarding({ onCancel }) {
                     style={{
                       padding: '16px',
                       borderRadius: '12px',
-                      background: isSelected ? 'var(--primary-glow)' : 'var(--bg-darker)',
-                      border: `1px solid ${isSelected ? 'var(--primary)' : 'var(--border-color)'}`,
+                      background: isSelected ? '#eff6ff' : '#f8fafc',
+                      border: `2px solid ${isSelected ? '#2563eb' : '#e2e8f0'}`,
                       cursor: 'pointer',
                       display: 'flex',
-                      flexDirection: 'column',
                       alignItems: 'center',
-                      gap: '8px',
-                      textAlign: 'center',
-                      transition: 'var(--transition-fast)'
+                      gap: '10px',
+                      transition: 'all 0.2s ease',
+                      boxSizing: 'border-box'
                     }}
                   >
                     <span style={{ fontSize: '20px' }}>{opt.icon}</span>
-                    <span style={{ fontSize: '13px', fontWeight: 600, color: '#fff' }}>{opt.label}</span>
+                    <span style={{ fontSize: '13px', fontWeight: 600, color: isSelected ? '#1e3a8a' : '#1a1a1a' }}>{opt.label}</span>
                   </div>
                 );
               })}
@@ -293,35 +307,77 @@ export default function Onboarding({ onCancel }) {
         {/* STEP 6: Body Stats */}
         {step === 6 && (
           <div className="animate-fade-in">
-            <h2 style={{ fontSize: '26px', marginBottom: '12px' }}>Body Statistics</h2>
-            <p style={{ color: 'var(--text-secondary)', fontSize: '14px', marginBottom: '24px' }}>
+            <h2 style={{ fontSize: '24px', fontWeight: '800', marginBottom: '8px', color: '#1a1a1a' }}>Body Statistics</h2>
+            <p style={{ color: '#666', fontSize: '14px', marginBottom: '20px' }}>
               Enter weight and height to initialize BMI and nutrition targets.
             </p>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1.2fr', gap: '12px', marginBottom: '16px' }}>
               <div>
-                <label htmlFor="height-feet">Feet</label>
-                <select id="height-feet" value={heightFeet} onChange={(e) => setHeightFeet(e.target.value)}>
+                <label htmlFor="height-feet" style={{ fontSize: '13px', fontWeight: 500, color: '#4d4d4d', display: 'block', marginBottom: '6px' }}>Feet</label>
+                <select 
+                  id="height-feet" 
+                  value={heightFeet} 
+                  onChange={(e) => setHeightFeet(e.target.value)}
+                  style={{
+                    height: '44px',
+                    borderRadius: '8px',
+                    border: '1px solid #cbd5e1',
+                    background: '#f8fafc',
+                    padding: '0 10px',
+                    fontSize: '15px',
+                    color: '#1e293b',
+                    width: '100%',
+                    boxSizing: 'border-box'
+                  }}
+                >
                   {[3, 4, 5, 6, 7, 8].map(ft => (
                     <option key={ft} value={ft}>{ft} ft</option>
                   ))}
                 </select>
               </div>
               <div>
-                <label htmlFor="height-inches">Inches</label>
-                <select id="height-inches" value={heightInches} onChange={(e) => setHeightInches(e.target.value)}>
+                <label htmlFor="height-inches" style={{ fontSize: '13px', fontWeight: 500, color: '#4d4d4d', display: 'block', marginBottom: '6px' }}>Inches</label>
+                <select 
+                  id="height-inches" 
+                  value={heightInches} 
+                  onChange={(e) => setHeightInches(e.target.value)}
+                  style={{
+                    height: '44px',
+                    borderRadius: '8px',
+                    border: '1px solid #cbd5e1',
+                    background: '#f8fafc',
+                    padding: '0 10px',
+                    fontSize: '15px',
+                    color: '#1e293b',
+                    width: '100%',
+                    boxSizing: 'border-box'
+                  }}
+                >
                   {[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11].map(inVal => (
                     <option key={inVal} value={inVal}>{inVal} in</option>
                   ))}
                 </select>
               </div>
               <div>
-                <label htmlFor="weight-input">Weight (kg)</label>
+                <label htmlFor="weight-input" style={{ fontSize: '13px', fontWeight: 500, color: '#4d4d4d', display: 'block', marginBottom: '6px' }}>Weight (kg)</label>
                 <input
                   id="weight-input"
                   type="number"
                   value={weight}
                   onChange={(e) => setWeight(e.target.value)}
                   placeholder="e.g., 72"
+                  style={{
+                    height: '44px',
+                    borderRadius: '8px',
+                    border: '1px solid #cbd5e1',
+                    background: '#f8fafc',
+                    padding: '0 16px',
+                    fontSize: '15px',
+                    color: '#1e293b',
+                    width: '100%',
+                    boxSizing: 'border-box'
+                  }}
+                  required
                 />
               </div>
             </div>
@@ -334,10 +390,24 @@ export default function Onboarding({ onCancel }) {
           justifyContent: 'space-between',
           marginTop: '36px',
           paddingTop: '24px',
-          borderTop: '1px solid var(--border-color)'
+          borderTop: '1px solid #e2e8f0'
         }}>
           {(step > 1 || onCancel) ? (
-            <button className="secondary" onClick={handleBack}>
+            <button 
+              onClick={handleBack}
+              style={{
+                height: '40px',
+                padding: '0 20px',
+                borderRadius: '8px',
+                background: '#f1f5f9',
+                color: '#475569',
+                border: 'none',
+                fontWeight: '600',
+                fontSize: '14px',
+                cursor: 'pointer',
+                boxShadow: 'none'
+              }}
+            >
               Back
             </button>
           ) : (
@@ -351,14 +421,20 @@ export default function Onboarding({ onCancel }) {
               (step === 6 && (!weight || parseFloat(weight) <= 0))
             }
             style={{
+              height: '40px',
+              padding: '0 20px',
+              borderRadius: '8px',
+              background: '#2563eb',
+              color: '#ffffff',
+              border: 'none',
+              fontWeight: '600',
+              fontSize: '14px',
+              cursor: 'pointer',
+              boxShadow: 'none',
               opacity: (
                 (step === 1 && (!name.trim() || !password.trim())) ||
                 (step === 6 && (!weight || parseFloat(weight) <= 0))
-              ) ? 0.5 : 1,
-              cursor: (
-                (step === 1 && (!name.trim() || !password.trim())) ||
-                (step === 6 && (!weight || parseFloat(weight) <= 0))
-              ) ? 'not-allowed' : 'pointer'
+              ) ? 0.5 : 1
             }}
           >
             {step === 6 ? 'Get Started' : 'Next'}
